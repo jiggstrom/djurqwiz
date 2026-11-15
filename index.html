@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Djurnamn på latin 🐾</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Comic Sans MS", "Chalkboard SE", "Segoe UI", sans-serif;
+    background: linear-gradient(160deg, #aee9ff 0%, #d9f99d 100%);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: clamp(28px, 6vw, 44px); text-align: center; color: #134e4a; margin: 10px 0; }
+  .sub { text-align: center; font-size: clamp(16px, 3vw, 22px); color: #0f766e; }
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .btn {
+    display: block; width: 100%; border: none; border-radius: 20px; padding: 18px;
+    font-size: clamp(18px, 3.4vw, 26px); font-weight: bold; cursor: pointer;
+    font-family: inherit; box-shadow: 0 4px 0 rgba(0,0,0,.15); transition: transform .08s;
+  }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 rgba(0,0,0,.15); }
+  .btn-big { background: #fff; color: #0f766e; }
+  .btn-play { background: #22c55e; color: #fff; }
+  .btn-learn { background: #f59e0b; color: #fff; }
+  .back { width: auto; padding: 10px 18px; font-size: 18px; background: #fff; color: #0f766e; }
+  .progress { font-size: clamp(16px, 3vw, 22px); color: #0f766e; font-weight: bold; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-top: 18px; }
+  .card {
+    background: #fff; border-radius: 20px; padding: 16px 10px; text-align: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,.08); cursor: pointer; border: 4px solid transparent;
+  }
+  .card .emoji { font-size: 52px; }
+  .card .namn { font-size: 20px; font-weight: bold; color: #134e4a; margin-top: 6px; }
+  .card .latin { display: none; font-style: italic; color: #7c3aed; font-size: 17px; margin-top: 8px; }
+  .card.show { border-color: #7c3aed; }
+  .card.show .latin { display: block; }
+  .q { text-align: center; font-size: clamp(22px, 4.5vw, 32px); font-weight: bold; color: #134e4a; margin: 14px 0 6px; }
+  .q .emoji { font-size: clamp(64px, 14vw, 110px); display: block; margin-bottom: 8px; }
+  .opts { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 20px; }
+  .opt {
+    background: #fff; border: 4px solid #e2e8f0; border-radius: 18px; padding: 16px 8px;
+    font-size: clamp(16px, 3vw, 22px); font-style: italic; font-weight: bold; color: #334155;
+    cursor: pointer; font-family: inherit;
+  }
+  .opt.correct { background: #bbf7d0; border-color: #22c55e; color: #14532d; }
+  .opt.wrong { background: #fecaca; border-color: #ef4444; color: #7f1d1d; }
+  .opt:disabled { cursor: default; }
+  .feedback { text-align: center; font-size: clamp(20px, 4vw, 30px); font-weight: bold; min-height: 46px; margin-top: 16px; }
+  .stars { text-align: center; font-size: clamp(34px, 8vw, 56px); letter-spacing: 6px; margin: 10px 0; }
+  .speak { background: none; border: none; font-size: 28px; cursor: pointer; }
+  @media (max-width: 560px) { .opts { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const DJUR = [
+  { sv: "Guppy",                 latin: "Poecilia reticulata",     emoji: "🐠" },
+  { sv: "Malawiciklid", extra: "Golden", latin: "Labidochromis caeruleus", emoji: "🐟" },
+  { sv: "Grekisk landsköldpadda", latin: "Testudo hermanni",       emoji: "🐢" },
+  { sv: "Korallfingergroda",     latin: "Litoria caerulea",        emoji: "🐸" },
+  { sv: "Platy",                 latin: "Xiphophorus maculatus",   emoji: "🐡" },
+  { sv: "Zebrafink",             latin: "Taeniopygia guttata",     emoji: "🐦" },
+  { sv: "Dvärgskäggagam",        latin: "Pogona henrylawsoni",     emoji: "🐊" },
+  { sv: "Leopardgecko",          latin: "Eublepharis macularius",  emoji: "🦎" },
+  { sv: "Majsorm",               latin: "Pantherophis guttatus",   emoji: "🐍" },
+  { sv: "Guldhamster",           latin: "Mesocricetus auratus",    emoji: "🐹" },
+  { sv: "Kanin",                 latin: "Oryctolagus cuniculus",   emoji: "🐰" },
+  { sv: "Undulat",               latin: "Melopsittacus undulatus", emoji: "🦜" },
+  { sv: "Gerbil",                latin: "Meriones unguiculatus",   emoji: "🐭" },
+  { sv: "Råtta",                 latin: "Rattus norvegicus",       emoji: "🐀" },
+  { sv: "Mus",                   latin: "Mus musculus",            emoji: "🐁" },
+  { sv: "Marsvin",               latin: "Cavia porcellus",         emoji: "🐹" }
+];
+
+const app = document.getElementById('app');
+let ljudCtx = null;
+
+function pip(ok) {
+  try {
+    if (!ljudCtx) ljudCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const t = ljudCtx.currentTime;
+    const o = ljudCtx.createOscillator();
+    const g = ljudCtx.createGain();
+    o.connect(g); g.connect(ljudCtx.destination);
+    if (ok) {
+      o.frequency.setValueAtTime(523, t);
+      o.frequency.setValueAtTime(784, t + 0.12);
+      g.gain.setValueAtTime(0.15, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      o.start(t); o.stop(t + 0.35);
+    } else {
+      o.frequency.setValueAtTime(220, t);
+      o.frequency.setValueAtTime(160, t + 0.15);
+      g.gain.setValueAtTime(0.12, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
+      o.start(t); o.stop(t + 0.4);
+    }
+  } catch (e) {}
+}
+
+function tala(text) {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'sv-SE';
+    u.rate = 0.85;
+    window.speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+function shuffle(a) {
+  a = a.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+  }
+  return a;
+}
+
+function getBest() { try { return +(localStorage.getItem('djurLatinBest') || 0); } catch (e) { return 0; } }
+function setBest(v) { try { localStorage.setItem('djurLatinBest', v); } catch (e) {} }
+
+function topbar(rightHtml) {
+  return '<div class="topbar"><button class="btn back" onclick="startScreen()">🏠 Start</button><div>' + (rightHtml || '') + '</div></div>';
+}
+
+function startScreen() {
+  const best = getBest();
+  app.innerHTML =
+    '<div class="wrap">' +
+      '<h1>🐾 Djurnamn på latin! 🐾</h1>' +
+      '<p class="sub">Lär dig vilket latinskt namn som hör till vilket djur!</p>' +
+      '<div style="max-width:420px;margin:30px auto 0;display:grid;gap:16px;">' +
+        '<button class="btn btn-learn" onclick="learnScreen()">📖 Lär dig djuren</button>' +
+        '<button class="btn btn-play" onclick="startQuiz()">🎮 Spela quiz</button>' +
+      '</div>' +
+      (best > 0 ? '<p class="sub" style="margin-top:24px;">Bästa resultat: ⭐ ' + best + ' / ' + DJUR.length + '</p>' : '') +
+    '</div>';
+}
+
+function learnScreen() {
+  app.innerHTML =
+    '<div class="wrap">' + topbar('📖 Lär dig') +
+      '<p class="sub">Tryck på ett djur för att se dess latinska namn. Tryck på 🔊 för att höra det!</p>' +
+      '<div class="grid" id="grid"></div>' +
+    '</div>';
+  const grid = document.getElementById('grid');
+  DJUR.forEach(function (d, i) {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.innerHTML =
+      '<div class="emoji">' + d.emoji + '</div>' +
+      '<div class="namn">' + d.sv + (d.extra ? ' <small>(' + d.extra + ')</small>' : '') + '</div>' +
+      '<div class="latin">' + d.latin + ' <button class="speak" data-i="' + i + '">🔊</button></div>';
+    el.addEventListener('click', function (ev) {
+      if (ev.target.classList.contains('speak')) {
+        tala(d.sv + ' heter ' + d.latin + ' på latin');
+        return;
+      }
+      el.classList.toggle('show');
+    });
+    grid.appendChild(el);
+  });
+}
+
+let qState = null;
+
+function startQuiz() {
+  qState = { questions: shuffle(DJUR), idx: 0, score: 0 };
+  nextQuestion();
+}
+
+function nextQuestion() {
+  const q = qState.questions[qState.idx];
+  const others = shuffle(DJUR.filter(function (d) { return d.latin !== q.latin; })).slice(0, 3);
+  const opts = shuffle([q].concat(others));
+  app.innerHTML =
+    '<div class="wrap">' + topbar('<span class="progress">Fråga ' + (qState.idx + 1) + ' / ' + qState.questions.length + ' &nbsp; ⭐ ' + qState.score + '</span>') +
+      '<div class="q"><span class="emoji">' + q.emoji + '</span>Vilket latinskt namn har ' + q.sv + (q.extra ? ' (' + q.extra + ')' : '') + '? <button class="speak" onclick="tala(\'' + q.sv + '\')">🔊</button></div>' +
+      '<div class="opts" id="opts"></div>' +
+      '<div class="feedback" id="fb"></div>' +
+    '</div>';
+  const box = document.getElementById('opts');
+  opts.forEach(function (o) {
+    const b = document.createElement('button');
+    b.className = 'opt';
+    b.textContent = o.latin;
+    b.addEventListener('click', function () {
+      const all = document.querySelectorAll('.opt');
+      all.forEach(function (x) { x.disabled = true; });
+      const fb = document.getElementById('fb');
+      if (o.latin === q.latin) {
+        b.classList.add('correct');
+        qState.score++;
+        fb.textContent = '🎉 Rätt!';
+        fb.style.color = '#16a34a';
+        pip(true);
+        tala('Rätt! ' + q.sv + ' heter ' + q.latin);
+      } else {
+        b.classList.add('wrong');
+        all.forEach(function (x) { if (x.textContent === q.latin) x.classList.add('correct'); });
+        fb.textContent = '😅 Inte riktigt – rätt svar är ' + q.latin;
+        fb.style.color = '#dc2626';
+        pip(false);
+        tala(q.sv + ' heter ' + q.latin);
+      }
+      setTimeout(function () {
+        qState.idx++;
+        if (qState.idx >= qState.questions.length) endScreen();
+        else nextQuestion();
+      }, 2200);
+    });
+    box.appendChild(b);
+  });
+}
+
+function endScreen() {
+  const n = qState.questions.length;
+  const s = qState.score;
+  setBest(Math.max(s, getBest()));
+  let stars = '';
+  for (let i = 0; i < s; i++) stars += '⭐';
+  let rubrik;
+  if (s === n) rubrik = '🏆 Perfekt! Du kan alla djurnamn!';
+  else if (s >= n * 0.75) rubrik = '🌟 Jättebra jobbat!';
+  else if (s >= n * 0.5) rubrik = '👍 Bra jobbat!';
+  else rubrik = '💪 Öva igen, du lär dig!';
+  app.innerHTML =
+    '<div class="wrap" style="text-align:center;">' +
+      '<h1>Klart! 🎉</h1>' +
+      '<div class="stars">' + (stars || '–') + '</div>' +
+      '<p class="q">Du fick <b>' + s + ' av ' + n + '</b> rätt!</p>' +
+      '<p class="sub">' + rubrik + '</p>' +
+      '<div style="max-width:420px;margin:26px auto 0;display:grid;gap:16px;">' +
+        '<button class="btn btn-play" onclick="startQuiz()">🔁 Spela igen</button>' +
+        '<button class="btn btn-learn" onclick="learnScreen()">📖 Lär dig igen</button>' +
+        '<button class="btn btn-big" onclick="startScreen()">🏠 Till start</button>' +
+      '</div>' +
+    '</div>';
+  pip(s >= n * 0.5);
+}
+
+startScreen();
+</script>
+</body>
+</html>
